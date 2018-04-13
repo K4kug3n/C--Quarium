@@ -422,8 +422,12 @@ int main() {
 
 	ecs::Aquarium aquarium;
 
-	ecs::add_fish(aquarium, std::string{ "Poisson 1" }, ecs::race::sole, true);
-	ecs::add_fish(aquarium, std::string{ "Poisson 2" }, ecs::race::sole, true);
+	for (size_t i{}; i < 5; i++) { ecs::add_seaweed(aquarium); };
+	for (size_t i{}; i < 5; i++)
+	{
+		const auto race{ ecs::random_race() };
+		ecs::add_fish(aquarium, ecs::to_string(race), race, ecs::random_sexe());
+	}
 
 	std::cout << "Tourt\tEntitees\tAlgue\tHerbivores\tCarnivores" << std::endl;
 
