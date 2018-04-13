@@ -10,33 +10,60 @@
 
 namespace ecs
 {
-
 	using id = size_t;
 	using entitites = std::vector<id>;
 
 	using name = std::string;
 	using isMale = bool;
-	using detail = std::pair<name, isMale>;
-	using detail_component = std::pair<id, detail>;
+
+	struct detail
+	{
+		name name_data;
+		isMale sexe_data;
+	};
+	struct detail_component
+	{
+		detail detail_data;
+		id id_data;
+	};
 	using details = std::vector<detail_component>;
 
 	enum class type { fish, seaweed };
 	using hp = int8_t;
 	using age = int8_t;
-	using type_component = std::tuple<id, type, hp, age>;
-	using types = std::vector<type_component>;
+
+	struct living
+	{
+		type type_data;
+		hp hp_data;
+		age age_data;
+	};
+	struct living_component
+	{
+		living living_data;
+		id id_data;
+	};
+	using types = std::vector<living_component>;
 
 	enum class race { merou, thon, clown, sole, bar, carpe };
-	using race_component = std::pair<id, race>;
+	struct race_component
+	{
+		race race_data;
+		id id_data;
+	};
 	using races = std::vector<race_component>;
 
-	entitites _entities;
-	details _details;
-	types _types;
-	races _races;
+	struct Aquarium
+	{
+		entitites _entities;
+		details _details;
+		types _types;
+		races _races;
+	};
 
 	std::random_device _random_device;
 	std::default_random_engine _random_engine{ _random_device() };
+
 
 	bool is_fish(type const& t) { return (t == type::fish); }
 	bool is_seaweed(type const& t) { return(t == type::seaweed); }
@@ -45,27 +72,27 @@ namespace ecs
 	bool is_hermaphrodite(race const& r) { return(r == race::bar || r == race::merou); }
 	bool is_oportunistic(race const& r) { return (r == race::sole || r == race::clown); }
 
-	bool is_fish_t(type_component const& t) { return is_fish(std::get<1>(t)); }
-	bool is_seaweed_t(type_component const& t) { return is_seaweed(std::get<1>(t)); }
-	bool is_herbivorous_p(race_component const& r) { return is_herbivorous(r.second); }
-	bool is_carnivorous_p(race_component const& r) { return is_carnivorous(r.second); }
-	bool is_hermaphrodite_p(race_component const& r) { return is_hermaphrodite(r.second); }
-	bool is_opportunistic_p(race_component const& r) { return is_oportunistic(r.second); }
+	bool is_fish_t(living_component const& t) { return is_fish(t.living_data.type_data); }
+	bool is_seaweed_t(living_component const& t) { return is_seaweed(t.living_data.type_data); }
+	bool is_herbivorous_p(race_component const& r) { return is_herbivorous(r.race_data); }
+	bool is_carnivorous_p(race_component const& r) { return is_carnivorous(r.race_data); }
+	bool is_hermaphrodite_p(race_component const& r) { return is_hermaphrodite(r.race_data); }
+	bool is_opportunistic_p(race_component const& r) { return is_oportunistic(r.race_data); }
 
-	hp & get_hp(type_component & t) { return std::get<2>(t); }
-	const hp get_const_hp(type_component & t) { return std::get<2>(t); }
-	age & get_age(type_component & t) { return std::get<3>(t); }
-	const age get_const_age(type_component & t) { return std::get<3>(t); }
-	bool is_famished(type_component & t) { return ((get_const_hp(t) <= 5) ? true : false); }
-	bool is_dead(type_component & t) { return ((get_const_hp(t) <= 0) ? true : false); }
-	bool is_hold(type_component & t) { return ((get_const_age(t) >= 20) ? true : false); }
-	bool is_half_life(type_component & t) { return (get_const_age(t) == 10); }
-	bool are_both_race(race_component const& r1, race_component const& r2) { return (r1.second == r2.second); }
-	bool are_both_sexe(detail_component const& r1, detail_component const& r2) { return (r1.second.second == r2.second.second); }
+	hp & get_hp(living_component & t) { return t.living_data.hp_data; }
+	const hp get_const_hp(living_component & t) { return t.living_data.hp_data; }
+	age & get_age(living_component & t) { return t.living_data.age_data; }
+	const age get_const_age(living_component & t) { return t.living_data.age_data; }
+	bool is_famished(living_component & t) { return ((get_const_hp(t) <= 5) ? true : false); }
+	bool is_dead(living_component & t) { return ((get_const_hp(t) <= 0) ? true : false); }
+	bool is_hold(living_component & t) { return ((get_const_age(t) >= 20) ? true : false); }
+	bool is_half_life(living_component & t) { return (get_const_age(t) == 10); }
+	bool are_both_race(race_component const& r1, race_component const& r2) { return (r1.race_data == r2.race_data); }
+	bool are_both_sexe(detail_component const& r1, detail_component const& r2) { return (r1.detail_data.sexe_data == r2.detail_data.sexe_data); }
 
-	std::string type_string_t(type_component t)
+	std::string type_string_t(living_component t)
 	{
-		if (std::get<1>(t) == type::fish)
+		if (t.living_data.type_data == type::fish)
 		{
 			return "Fish";
 		}
@@ -94,37 +121,37 @@ namespace ecs
 
 	id random_entity(std::uniform_int_distribution<size_t> & dist, std::vector<id> const& entities)
 	{
-		return entities[dist(ecs::_random_engine)];
+		return entities[dist(_random_engine)];
 	}
 
 	void swap_sexe(detail_component & d)
 	{
-		d.second.second == true ? d.second.second = false : d.second.second = true;
+		d.detail_data.sexe_data == true ? d.detail_data.sexe_data = false : d.detail_data.sexe_data = true;
 	}
 
-	id create_entity()
+	id create_entity(Aquarium & aquarium)
 	{
-		const auto id = _entities.empty() ? 1 : _entities.back() + 1;
-		_entities.push_back(id);
+		const auto id = aquarium._entities.empty() ? 1 : aquarium._entities.back() + 1;
+		aquarium._entities.push_back(id);
 
 		return id;
 	}
 
-	id add_seaweed(int hp = 10)
+	id add_seaweed(Aquarium & aquarium, hp hp = 10)
 	{
-		const auto id{ create_entity() };
-		_types.push_back(std::make_tuple(id, type::seaweed, hp, 0));
+		const auto id{ create_entity(aquarium) };
+		aquarium._types.push_back(living_component{ living{ type::seaweed, hp, 0 }, id });
 
 		return id;
 	}
 
-	id add_fish(name & name, race r, isMale sexe)
+	id add_fish(Aquarium & aquarium, name & name, race r, isMale sexe)
 	{
-		const auto id{ create_entity() };
+		const auto id{ create_entity(aquarium) };
 
-		_types.push_back(std::make_tuple(id, type::fish, 10, 0));
-		_details.push_back(std::make_pair(id, std::make_pair(name, sexe)));
-		_races.push_back(std::make_pair(id, r));
+		aquarium._types.push_back(living_component{ living{ type::fish, 10, 0 }, id });
+		aquarium._details.push_back(detail_component{ detail{ name, sexe }, id });
+		aquarium._races.push_back(race_component{ r, id });
 
 		return id;
 	}
@@ -133,38 +160,40 @@ namespace ecs
 	typename Collection::value_type & get_component(Collection & collection, id id)
 	{
 		auto it = std::find_if(begin(collection), end(collection),
-			[id](auto p) {return(std::get<0>(p) == id); });
+			[id](auto p) {return(p.id_data == id); });
+
+		assert(it != end(collection));
 
 		return (*it);
 	}
 
 	template<typename Function>
-	std::vector<id> get_entities(Function&& function)
+	std::vector<id> get_entities(Aquarium & aquarium, Function&& function)
 	{
 		std::vector<id> entities;
-		std::for_each(_types.begin(), _types.end(),
-			[&entities, function](auto p) { if (function(std::get<1>(p))) { entities.push_back(std::get<0>(p)); } });
+		std::for_each(aquarium._types.begin(), aquarium._types.end(),
+			[&entities, function](auto p) { if (function(p.living_data.type_data)) { entities.push_back(p.id_data); } });
 
 		return entities;
 	}
 
-	const std::vector<id> get_fishs()
+	const std::vector<id> get_fishs(Aquarium & aquarium)
 	{
-		return(get_entities(ecs::is_fish));
+		return(get_entities(aquarium, is_fish));
 	}
 
-	const std::vector<id> get_seaweeds()
+	const std::vector<id> get_seaweeds(Aquarium & aquarium)
 	{
-		return(get_entities(ecs::is_seaweed));
+		return(get_entities(aquarium, is_seaweed));
 	}
 
-	const std::vector<id> get_herbivorous(std::vector<id> const& fishs)
+	const std::vector<id> get_herbivorous(Aquarium & aquarium, std::vector<id> const& fishs)
 	{
 		std::vector<id> herbivorous;
 
 		for (auto & fish : fishs)
 		{
-			auto fish_race{ get_component(_races, fish) };
+			auto fish_race{ get_component(aquarium._races, fish) };
 			if (is_herbivorous_p(fish_race))
 			{
 				herbivorous.push_back(fish);
@@ -174,13 +203,13 @@ namespace ecs
 		return herbivorous;
 	}
 
-	const std::vector<id> get_carnivorous(std::vector<id> const& fishs)
+	const std::vector<id> get_carnivorous(Aquarium & aquarium, std::vector<id> const& fishs)
 	{
 		std::vector<id> carnivorous;
 
 		for (auto & fish : fishs)
 		{
-			auto fish_race{ get_component(_races, fish) };
+			auto fish_race{ get_component(aquarium._races, fish) };
 			if (is_carnivorous_p(fish_race))
 			{
 				carnivorous.push_back(fish);
@@ -190,105 +219,89 @@ namespace ecs
 		return carnivorous;
 	}
 
-	void delete_entity(id id)
+	void delete_entity(Aquarium & aquarium, id id)
 	{
-		const auto entities_it = std::remove(_entities.begin(), _entities.end(), id);
-		_entities.erase(entities_it, _entities.end());
+		const auto entities_it = std::remove(aquarium._entities.begin(), aquarium._entities.end(), id);
+		aquarium._entities.erase(entities_it, aquarium._entities.end());
 
-		const auto details_it = std::remove_if(_details.begin(), _details.end(),
-			[id](auto p) { return (p.first == id); });
-		_details.erase(details_it, _details.end());
+		const auto details_it = std::remove_if(aquarium._details.begin(), aquarium._details.end(),
+			[id](auto p) { return (p.id_data == id); });
+		aquarium._details.erase(details_it, aquarium._details.end());
 
-		const auto types_it = std::remove_if(_types.begin(), _types.end(),
-			[id](auto p) { return (std::get<0>(p) == id); });
-		_types.erase(types_it, _types.end());
+		const auto types_it = std::remove_if(aquarium._types.begin(), aquarium._types.end(),
+			[id](auto p) { return (p.id_data == id); });
+		aquarium._types.erase(types_it, aquarium._types.end());
 
-		const auto races_it = std::remove_if(_races.begin(), _races.end(),
-			[id](auto p) { return (p.first == id); });
-		_races.erase(races_it, _races.end());
+		const auto races_it = std::remove_if(aquarium._races.begin(), aquarium._races.end(),
+			[id](auto p) { return (p.id_data == id); });
+		aquarium._races.erase(races_it, aquarium._races.end());
 	}
 
-	void delete_entities(std::vector<id> & entities)
+	void delete_entities(Aquarium & aquarium, std::vector<id> & entities)
 	{
 		for (auto & entity : entities)
 		{
-			delete_entity(entity);
+			delete_entity(aquarium, entity);
 		}
 	}
 
-	void hp_update()
+	void hp_update(Aquarium & aquarium)
 	{
 		std::vector<id> entity_to_delete;
 
-		for (auto const& entity : ecs::_entities)
+		for (auto const& entity : aquarium._entities)
 		{
-			auto & type{ get_component(ecs::_types, entity) };
-			if (ecs::is_fish_t(type))
+			auto & type{ get_component(aquarium._types, entity) };
+			if (is_fish_t(type))
 			{
-				ecs::get_hp(type) -= 1;
+				get_hp(type) -= 1;
 			}
 			else
 			{
-				ecs::get_hp(type) += 1;
+				get_hp(type) += 1;
 			}
 
 			if (is_dead(type)) { entity_to_delete.push_back(entity); }
 		}
 
-		delete_entities(entity_to_delete);
+		delete_entities(aquarium, entity_to_delete);
 	}
 
-	void age_update()
+	void age_update(Aquarium & aquarium)
 	{
 		std::vector<id> entity_to_delete;
 
-		for (auto const& entity : _entities)
+		for (auto const& entity : aquarium._entities)
 		{
-			auto & type{ get_component(ecs::_types, entity) };
+			auto & type{ get_component(aquarium._types, entity) };
 
 			get_age(type) += 1;
 
 			if (is_hold(type)) { entity_to_delete.push_back(entity); }
 		}
 
-		delete_entities(entity_to_delete);
+		delete_entities(aquarium, entity_to_delete);
 	}
 
-	void sexe_update(id entity)
+	void sexe_update(Aquarium & aquarium, id entity)
 	{
-		const auto race{ get_component(ecs::_races, entity) };
-		auto type{ get_component(ecs::_types, entity) };
+		const auto race{ get_component(aquarium._races, entity) };
+		auto type{ get_component(aquarium._types, entity) };
 		if (is_half_life(type) && is_hermaphrodite_p(race))
 		{
-			auto & sexe{ get_component(_details, entity) };
+			auto & sexe{ get_component(aquarium._details, entity) };
 			swap_sexe(sexe);
 		}
 	}
 
-	void eat_fish(type_component & eater_type, id target, std::vector<id> & trash)
+	void eat_fish(Aquarium & aquarium, living_component & eater_type, id target, std::vector<id> & trash)
 	{
-		auto & target_type{ ecs::get_component(ecs::_types, target) };
-
-		if (!ecs::is_dead(target_type))
-		{
-			ecs::get_hp(eater_type) += 5;
-			ecs::get_hp(target_type) -= 4;
-
-			if (ecs::is_dead(target_type))
-			{
-				trash.push_back(target);
-			}
-		}
-	}
-
-	void eat_seaweed(type_component & eater_type, id target, std::vector<id> & trash)
-	{
-		auto & target_type{ ecs::get_component(ecs::_types, target) };
+		auto & target_type{ get_component(aquarium._types, target) };
 
 		if (!is_dead(target_type))
 		{
-			ecs::get_hp(eater_type) += 3;
-			ecs::get_hp(target_type) -= 2;
+			get_hp(eater_type) += 5;
+			get_hp(target_type) -= 4;
 
 			if (is_dead(target_type))
 			{
@@ -297,40 +310,56 @@ namespace ecs
 		}
 	}
 
-	void fish_reproduce(id fish, id target)
+	void eat_seaweed(Aquarium & aquarium, living_component & eater_type, id target, std::vector<id> & trash)
 	{
-		auto target_type{ ecs::get_component(ecs::_types, target) };
-		const auto target_race{ ecs::get_component(ecs::_races, target) };
-		const auto fish_race{ ecs::get_component(ecs::_races, fish) };
+		auto & target_type{ get_component(aquarium._types, target) };
 
-		if (!ecs::is_dead(target_type) && ecs::are_both_race(target_race, fish_race))
+		if (!is_dead(target_type))
 		{
-			auto & fish_detail{ ecs::get_component(ecs::_details, fish) };
-			auto & target_detail{ ecs::get_component(ecs::_details, target) };
+			get_hp(eater_type) += 3;
+			get_hp(target_type) -= 2;
 
-			if (!ecs::are_both_sexe(fish_detail, target_detail))
+			if (is_dead(target_type))
 			{
-				ecs::add_fish(ecs::to_string(fish_race.second), fish_race.second, ecs::random_sexe());
+				trash.push_back(target);
 			}
-			else if (ecs::is_opportunistic_p(target_race))
+		}
+	}
+
+	void fish_reproduce(Aquarium & aquarium, id fish, id target)
+	{
+		auto target_type{ get_component(aquarium._types, target) };
+		const auto target_race{ get_component(aquarium._races, target) };
+		const auto fish_race{ get_component(aquarium._races, fish) };
+
+		if (!is_dead(target_type) && are_both_race(target_race, fish_race))
+		{
+			auto & fish_detail{ get_component(aquarium._details, fish) };
+			auto & target_detail{ get_component(aquarium._details, target) };
+
+			if (!are_both_sexe(fish_detail, target_detail))
 			{
-				ecs::swap_sexe(target_detail);
-				ecs::add_fish(ecs::to_string(fish_race.second), fish_race.second, ecs::random_sexe());
+				add_fish(aquarium, to_string(fish_race.race_data), fish_race.race_data, random_sexe());
+			}
+			else if (is_opportunistic_p(target_race))
+			{
+				swap_sexe(target_detail);
+				add_fish(aquarium, to_string(fish_race.race_data), fish_race.race_data, random_sexe());
 			}
 
 		}
 	}
 
-	void seaweed_reproduce(std::vector<id> const& seaweeds)
+	void seaweed_reproduce(Aquarium & aquarium, std::vector<id> const& seaweeds)
 	{
 		for (auto & seaweed : seaweeds)
 		{
-			auto & seaweed_type{ ecs::get_component(ecs::_types, seaweed) };
-			auto & seaweed_hp{ ecs::get_hp(seaweed_type) };
-			if (!ecs::is_dead(seaweed_type) && seaweed_hp >= 10)
+			auto & seaweed_type{ get_component(aquarium._types, seaweed) };
+			auto & seaweed_hp{ get_hp(seaweed_type) };
+			if (!is_dead(seaweed_type) && seaweed_hp >= 10)
 			{
 				seaweed_hp /= 2;
-				ecs::add_seaweed(seaweed_hp);
+				add_seaweed(aquarium, seaweed_hp);
 			}
 		}
 	}
@@ -340,68 +369,76 @@ namespace ecs
 		std::cout << tour << "\t" << entities << "\t\t" << seaweed << "\t\t" << herbivorous << "\t\t" << carnivorous << std::endl;
 	}
 
-	void spend_time(std::vector<id> const& fishs, std::vector<id> const& seaweeds)
+	void fish_spend_time(Aquarium & aquarium, std::vector<id> const& fishs, std::vector<id> const& seaweeds, std::vector<id> & trash)
 	{
-		ecs::hp_update();
-		ecs::age_update();
-
 		std::uniform_int_distribution<size_t> fish_dist(0, fishs.size() - 1);
 		std::uniform_int_distribution<size_t> seaweed_dist(0, seaweeds.size() - 1);
 
-		std::vector<ecs::id> entity_dead;
-
 		for (auto & fish : fishs)
 		{
-			sexe_update(fish);
-			auto & fish_type{ ecs::get_component(ecs::_types, fish) };
+			sexe_update(aquarium, fish);
+			auto & fish_type{ get_component(aquarium._types, fish) };
 
-			if (ecs::is_famished(fish_type) && !ecs::is_dead(fish_type))
+			if (is_famished(fish_type) && !is_dead(fish_type))
 			{
-				auto fish_race{ ecs::get_component(ecs::_races, fish) };
+				auto fish_race{ get_component(aquarium._races, fish) };
 
-				if (ecs::is_carnivorous(fish_race.second) && !fishs.empty())
+				if (is_carnivorous(fish_race.race_data) && !fishs.empty())
 				{
-					ecs::eat_fish(fish_type, ecs::random_entity(fish_dist, fishs), entity_dead);
+					eat_fish(aquarium, fish_type, random_entity(fish_dist, fishs), trash);
 				}
-				else if (ecs::is_herbivorous(fish_race.second) && !seaweeds.empty())
+				else if (is_herbivorous(fish_race.race_data) && !seaweeds.empty())
 				{
-					ecs::eat_seaweed(fish_type, ecs::random_entity(seaweed_dist, seaweeds), entity_dead);
+					eat_seaweed(aquarium, fish_type, random_entity(seaweed_dist, seaweeds), trash);
 				}
 			}
-			else if (!ecs::is_famished(fish_type) && !ecs::is_dead(fish_type))
+			else if (!is_famished(fish_type) && !is_dead(fish_type))
 			{
-				fish_reproduce(fish, random_entity(fish_dist, fishs));
+				fish_reproduce(aquarium, fish, random_entity(fish_dist, fishs));
 			}
 
 		}
+	}
 
-		ecs::seaweed_reproduce(seaweeds);
+	void spend_time(Aquarium & aquarium, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	{
+		hp_update(aquarium);
+		age_update(aquarium);
 
-		ecs::delete_entities(entity_dead);
+		fishs = get_fishs(aquarium);
+		seaweeds = get_seaweeds(aquarium);
+
+		std::vector<id> entity_dead;
+
+		fish_spend_time(aquarium, fishs, seaweeds, entity_dead);
+
+		seaweed_reproduce(aquarium, seaweeds);
+
+		delete_entities(aquarium, entity_dead);
 	}
 }
 
 int main() {
 
-	for (size_t i{ 0 }; i < 5; i++) { ecs::add_seaweed(); }
-	for (size_t i{ 0 }; i < 10; i++)
-	{
-		const auto race{ ecs::random_race() };
-		ecs::add_fish(ecs::to_string(race), race, ecs::random_sexe());
-	}
+	ecs::Aquarium aquarium;
+
+	ecs::add_fish(aquarium, std::string{ "Poisson 1" }, ecs::race::sole, true);
+	ecs::add_fish(aquarium, std::string{ "Poisson 2" }, ecs::race::sole, true);
 
 	std::cout << "Tourt\tEntitees\tAlgue\tHerbivores\tCarnivores" << std::endl;
 
 	for (size_t tour{}; tour < 20; ++tour)
 	{
-		const auto fishs{ ecs::get_fishs() };
-		const auto seaweeds{ ecs::get_seaweeds() };
+		auto fishs{ ecs::get_fishs(aquarium) };
+		auto seaweeds{ ecs::get_seaweeds(aquarium) };
+		const auto herbivorous{ ecs::get_herbivorous(aquarium, fishs) };
+		const auto carnivorous{ ecs::get_carnivorous(aquarium, fishs) };
 
-		ecs::spend_time(fishs, seaweeds);
+		ecs::print(tour, aquarium._entities.size(), seaweeds.size(), herbivorous.size(), carnivorous.size());
 
-		const auto herbivorous{ ecs::get_herbivorous(fishs) };
-		const auto carnivorous{ ecs::get_carnivorous(fishs) };
-		ecs::print(tour, ecs::_entities.size(), seaweeds.size(), herbivorous.size(), carnivorous.size());
+		ecs::spend_time(aquarium, fishs, seaweeds);
+
+
 	}
 
 	std::cout << "===== Time Out ===== " << std::endl;
