@@ -6,7 +6,6 @@
 #include <iterator>
 #include <cassert>
 #include <random>
-#include <tuple>
 
 namespace ecs
 {
@@ -55,14 +54,12 @@ namespace ecs
 
 	struct Aquarium
 	{
+		std::default_random_engine _random_engine;
 		entitites _entities;
 		details _details;
 		types _types;
 		races _races;
 	};
-
-	std::random_device _random_device;
-	std::default_random_engine _random_engine{ _random_device() };
 
 
 	bool is_fish(type const& t) { return (t == type::fish); }
@@ -90,6 +87,9 @@ namespace ecs
 	bool are_both_race(race_component const& r1, race_component const& r2) { return (r1.race_data == r2.race_data); }
 	bool are_both_sexe(detail_component const& r1, detail_component const& r2) { return (r1.detail_data.sexe_data == r2.detail_data.sexe_data); }
 
+	using iterator = std::vector<id>::iterator;
+	using reverse_iterator = std::vector<id>::reverse_iterator;
+
 	std::string type_string_t(living_component t)
 	{
 		if (t.living_data.type_data == type::fish)
@@ -106,22 +106,32 @@ namespace ecs
 		return races[static_cast<size_t>(r)];
 	}
 
-	bool random_sexe()
+	bool random_sexe(Aquarium & aquarium)
 	{
 		std::uniform_int_distribution<size_t> distribution(0, 1);
 
-		return(distribution(_random_engine) == 0);
+		return(distribution(aquarium._random_engine) == 0);
 	}
 
-	race random_race()
+	race random_race(Aquarium & aquarium)
 	{
 		std::uniform_int_distribution<size_t> distribution(0, 5);
-		return static_cast<race>(distribution(_random_engine));
+		return static_cast<race>(distribution(aquarium._random_engine));
 	}
 
-	id random_entity(std::uniform_int_distribution<size_t> & dist, std::vector<id> const& entities)
+	iterator random_iterator(Aquarium & aquarium, std::uniform_int_distribution<size_t> & dist, std::vector<id> & entities, iterator exclusion)
 	{
-		return entities[dist(_random_engine)];
+		iterator it;
+		do {
+			it = entities.begin() + dist(aquarium._random_engine);
+		} while (it == exclusion);
+
+		return it;
+	}
+
+	id random_entity(Aquarium & aquarium, std::uniform_int_distribution<size_t> & dist, std::vector<id> const& entities)
+	{
+		return entities[dist(aquarium._random_engine)];
 	}
 
 	void swap_sexe(detail_component & d)
@@ -237,6 +247,19 @@ namespace ecs
 		aquarium._races.erase(races_it, aquarium._races.end());
 	}
 
+	void delete_entity(std::vector<id> & collection, iterator & actual_place, iterator & target)
+	{
+		std::swap(*target, *(collection.rbegin()));
+		if (std::distance(actual_place, target) >= 0)
+		{
+			collection.resize(collection.size() - 1);
+		}
+		else
+		{
+			std::swap(*target, *(collection.rbegin()));
+		}
+	}
+
 	void delete_entities(Aquarium & aquarium, std::vector<id> & entities)
 	{
 		for (auto & entity : entities)
@@ -294,38 +317,6 @@ namespace ecs
 		}
 	}
 
-	void eat_fish(Aquarium & aquarium, living_component & eater_type, id target, std::vector<id> & trash)
-	{
-		auto & target_type{ get_component(aquarium._types, target) };
-
-		if (!is_dead(target_type))
-		{
-			get_hp(eater_type) += 5;
-			get_hp(target_type) -= 4;
-
-			if (is_dead(target_type))
-			{
-				trash.push_back(target);
-			}
-		}
-	}
-
-	void eat_seaweed(Aquarium & aquarium, living_component & eater_type, id target, std::vector<id> & trash)
-	{
-		auto & target_type{ get_component(aquarium._types, target) };
-
-		if (!is_dead(target_type))
-		{
-			get_hp(eater_type) += 3;
-			get_hp(target_type) -= 2;
-
-			if (is_dead(target_type))
-			{
-				trash.push_back(target);
-			}
-		}
-	}
-
 	void fish_reproduce(Aquarium & aquarium, id fish, id target)
 	{
 		auto target_type{ get_component(aquarium._types, target) };
@@ -339,15 +330,123 @@ namespace ecs
 
 			if (!are_both_sexe(fish_detail, target_detail))
 			{
-				add_fish(aquarium, to_string(fish_race.race_data), fish_race.race_data, random_sexe());
+				add_fish(aquarium, to_string(fish_race.race_data), fish_race.race_data, random_sexe(aquarium));
 			}
 			else if (is_opportunistic_p(target_race))
 			{
 				swap_sexe(target_detail);
-				add_fish(aquarium, to_string(fish_race.race_data), fish_race.race_data, random_sexe());
+				add_fish(aquarium, to_string(fish_race.race_data), fish_race.race_data, random_sexe(aquarium));
 			}
 
 		}
+	}
+
+	void eat_seaweed(Aquarium & aquarium, living_component & eater_type, id target, std::vector<id> & seaweeds)
+	{
+		auto & target_type{ get_component(aquarium._types, target) };
+
+		if (!is_dead(target_type))
+		{
+			get_hp(eater_type) += 3;
+			get_hp(target_type) -= 2;
+
+			if (is_dead(target_type))
+			{
+				delete_entity(aquarium, target);
+				seaweeds.erase(std::remove(seaweeds.begin(), seaweeds.end(), target), seaweeds.end());
+			}
+		}
+	}
+
+	bool need_update(iterator active, iterator target)
+	{
+		return std::distance(active, target) < 0;
+	}
+
+	void fish_eat_fish(Aquarium & aquarium, iterator active, iterator & target,
+		reverse_iterator & last_valid, std::vector<id> & fishs, std::vector<id> & seaweeds);
+
+	void update_fish(Aquarium & aquarium, iterator active, reverse_iterator & last_valid, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	{
+		std::uniform_int_distribution<size_t> seaweed_dist(0, seaweeds.size() - 1);
+		std::uniform_int_distribution<size_t> fish_dist(0, fishs.size() - 1);
+
+		sexe_update(aquarium, *active);
+		auto & fish_type{ get_component(aquarium._types, *active) };
+		if (is_famished(fish_type))
+		{
+			auto fish_race{ get_component(aquarium._races, *active) };
+			if (is_carnivorous(fish_race.race_data) && (fishs.size() - std::distance(last_valid - 1, fishs.rbegin() + 1)) > 1) {
+				fish_eat_fish(aquarium, active, random_iterator(aquarium, fish_dist, fishs, active), last_valid, fishs, seaweeds);
+			}
+			else if (is_herbivorous(fish_race.race_data) && !seaweeds.empty()) {
+				eat_seaweed(aquarium, fish_type, random_entity(aquarium, seaweed_dist, seaweeds), seaweeds);
+			}
+
+		}
+		else if (!is_famished(fish_type))
+		{
+			fish_reproduce(aquarium, *active, random_entity(aquarium, fish_dist, fishs));
+		}
+
+	}
+
+	void update_fishs(Aquarium & aquarium, iterator begin, reverse_iterator & last_valid,
+					  std::vector<id> & fishs, std::vector<id> & seaweeds)
+	{
+		for (iterator active{ begin }; *active != *last_valid; ++active)
+		{
+			update_fish(aquarium, active, last_valid, fishs, seaweeds);
+		}
+	}
+
+	void eat_fish(Aquarium & aquarium, iterator active, iterator & target,
+		reverse_iterator & lastValid)
+	{
+
+		auto & eater_type{ get_component(aquarium._types, *active) };
+		auto & target_type{ get_component(aquarium._types, *target) };
+
+		get_hp(eater_type) += 5;
+		get_hp(target_type) -= 4;
+
+		if (is_dead(target_type)) {
+			/* sinon, on inverse la cible avec le dernier
+			* élément valde
+			*/
+			std::swap(*target, *lastValid);
+			/* et comme l'itérateur lastValid contient désormais
+			*... un élément invalide, on le fait passer
+			* à l'élément suivant
+			*/
+			++lastValid;
+			/* "y a plus qu'à" déterminer si target doit
+			* pouvoir passer son temps
+			*/
+		}
+	}
+
+	void fish_eat_fish(Aquarium & aquarium, iterator active, iterator & target,
+		reverse_iterator & last_valid, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	{
+		eat_fish(aquarium, active, target, last_valid);
+		/*l'iterateur target contient l'ancien last_valid
+		*on verfie si il faut l'update...
+		*/
+		if (need_update(active, target))
+		{
+			/*...et on l'update
+			*/
+			update_fish(aquarium, target, last_valid, fishs, seaweeds);
+		}
+	}
+
+	void fish_spend_time(Aquarium & aquarium, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	{
+		reverse_iterator last_valid = fishs.rbegin();
+		update_fishs(aquarium, fishs.begin(), last_valid, fishs, seaweeds);
+		auto sizeToRem = std::distance(fishs.rbegin(), last_valid);
+		fishs.resize(fishs.size() - sizeToRem);
 	}
 
 	void seaweed_reproduce(Aquarium & aquarium, std::vector<id> const& seaweeds)
@@ -369,36 +468,6 @@ namespace ecs
 		std::cout << tour << "\t" << entities << "\t\t" << seaweed << "\t\t" << herbivorous << "\t\t" << carnivorous << std::endl;
 	}
 
-	void fish_spend_time(Aquarium & aquarium, std::vector<id> const& fishs, std::vector<id> const& seaweeds, std::vector<id> & trash)
-	{
-		std::uniform_int_distribution<size_t> fish_dist(0, fishs.size() - 1);
-		std::uniform_int_distribution<size_t> seaweed_dist(0, seaweeds.size() - 1);
-
-		for (auto & fish : fishs)
-		{
-			sexe_update(aquarium, fish);
-			auto & fish_type{ get_component(aquarium._types, fish) };
-
-			if (is_famished(fish_type) && !is_dead(fish_type))
-			{
-				auto fish_race{ get_component(aquarium._races, fish) };
-
-				if (is_carnivorous(fish_race.race_data) && !fishs.empty())
-				{
-					eat_fish(aquarium, fish_type, random_entity(fish_dist, fishs), trash);
-				}
-				else if (is_herbivorous(fish_race.race_data) && !seaweeds.empty())
-				{
-					eat_seaweed(aquarium, fish_type, random_entity(seaweed_dist, seaweeds), trash);
-				}
-			}
-			else if (!is_famished(fish_type) && !is_dead(fish_type))
-			{
-				fish_reproduce(aquarium, fish, random_entity(fish_dist, fishs));
-			}
-
-		}
-	}
 
 	void spend_time(Aquarium & aquarium, std::vector<id> & fishs, std::vector<id> & seaweeds)
 	{
@@ -408,25 +477,22 @@ namespace ecs
 		fishs = get_fishs(aquarium);
 		seaweeds = get_seaweeds(aquarium);
 
-		std::vector<id> entity_dead;
-
-		fish_spend_time(aquarium, fishs, seaweeds, entity_dead);
+		fish_spend_time(aquarium, fishs, seaweeds);
 
 		seaweed_reproduce(aquarium, seaweeds);
 
-		delete_entities(aquarium, entity_dead);
 	}
 }
 
 int main() {
 
-	ecs::Aquarium aquarium;
+	ecs::Aquarium aquarium{ std::default_random_engine{} };
 
 	for (size_t i{}; i < 5; i++) { ecs::add_seaweed(aquarium); };
 	for (size_t i{}; i < 5; i++)
 	{
-		const auto race{ ecs::random_race() };
-		ecs::add_fish(aquarium, ecs::to_string(race), race, ecs::random_sexe());
+		const auto race{ ecs::random_race(aquarium) };
+		ecs::add_fish(aquarium, ecs::to_string(race), race, ecs::random_sexe(aquarium));
 	}
 
 	std::cout << "Tourt\tEntitees\tAlgue\tHerbivores\tCarnivores" << std::endl;
@@ -441,7 +507,6 @@ int main() {
 		ecs::print(tour, aquarium._entities.size(), seaweeds.size(), herbivorous.size(), carnivorous.size());
 
 		ecs::spend_time(aquarium, fishs, seaweeds);
-
 
 	}
 
