@@ -6,11 +6,12 @@
 #include <iterator>
 #include <cassert>
 #include <random>
+#include <tuple>
 
 namespace ecs
 {
 	using id = size_t;
-	using entitites = std::vector<id>;
+	using entities = std::vector<id>;
 
 	using name = std::string;
 	using isMale = bool;
@@ -55,7 +56,7 @@ namespace ecs
 	struct Aquarium
 	{
 		std::default_random_engine _random_engine;
-		entitites _entities;
+		entities _entities;
 		details _details;
 		types _types;
 		races _races;
@@ -87,8 +88,8 @@ namespace ecs
 	bool are_both_race(race_component const& r1, race_component const& r2) { return (r1.race_data == r2.race_data); }
 	bool are_both_sexe(detail_component const& r1, detail_component const& r2) { return (r1.detail_data.sexe_data == r2.detail_data.sexe_data); }
 
-	using iterator = std::vector<id>::iterator;
-	using reverse_iterator = std::vector<id>::reverse_iterator;
+	using iterator = entities::iterator;
+	using reverse_iterator = entities::reverse_iterator;
 
 	std::string type_string_t(living_component t)
 	{
@@ -119,7 +120,7 @@ namespace ecs
 		return static_cast<race>(distribution(aquarium._random_engine));
 	}
 
-	iterator random_iterator(Aquarium & aquarium, std::uniform_int_distribution<size_t> & dist, std::vector<id> & entities, iterator exclusion)
+	iterator random_iterator(Aquarium & aquarium, std::uniform_int_distribution<size_t> & dist, entities & entities, iterator exclusion)
 	{
 		iterator it;
 		do {
@@ -129,7 +130,7 @@ namespace ecs
 		return it;
 	}
 
-	id random_entity(Aquarium & aquarium, std::uniform_int_distribution<size_t> & dist, std::vector<id> const& entities)
+	id random_entity(Aquarium & aquarium, std::uniform_int_distribution<size_t> & dist, entities const& entities)
 	{
 		return entities[dist(aquarium._random_engine)];
 	}
@@ -178,28 +179,28 @@ namespace ecs
 	}
 
 	template<typename Function>
-	std::vector<id> get_entities(Aquarium & aquarium, Function&& function)
+	entities get_entities(Aquarium & aquarium, Function&& function)
 	{
-		std::vector<id> entities;
+		entities entities;
 		std::for_each(aquarium._types.begin(), aquarium._types.end(),
 			[&entities, function](auto p) { if (function(p.living_data.type_data)) { entities.push_back(p.id_data); } });
 
 		return entities;
 	}
 
-	const std::vector<id> get_fishs(Aquarium & aquarium)
+	const entities get_fishs(Aquarium & aquarium)
 	{
 		return(get_entities(aquarium, is_fish));
 	}
 
-	const std::vector<id> get_seaweeds(Aquarium & aquarium)
+	const entities get_seaweeds(Aquarium & aquarium)
 	{
 		return(get_entities(aquarium, is_seaweed));
 	}
 
-	const std::vector<id> get_herbivorous(Aquarium & aquarium, std::vector<id> const& fishs)
+	const entities get_herbivorous(Aquarium & aquarium, entities const& fishs)
 	{
-		std::vector<id> herbivorous;
+		entities herbivorous;
 
 		for (auto & fish : fishs)
 		{
@@ -213,9 +214,9 @@ namespace ecs
 		return herbivorous;
 	}
 
-	const std::vector<id> get_carnivorous(Aquarium & aquarium, std::vector<id> const& fishs)
+	const entities get_carnivorous(Aquarium & aquarium, entities const& fishs)
 	{
-		std::vector<id> carnivorous;
+		entities carnivorous;
 
 		for (auto & fish : fishs)
 		{
@@ -247,7 +248,7 @@ namespace ecs
 		aquarium._races.erase(races_it, aquarium._races.end());
 	}
 
-	void delete_entity(std::vector<id> & collection, iterator & actual_place, iterator & target)
+	void delete_entity(entities & collection, iterator & actual_place, iterator & target)
 	{
 		std::swap(*target, *(collection.rbegin()));
 		if (std::distance(actual_place, target) >= 0)
@@ -260,7 +261,7 @@ namespace ecs
 		}
 	}
 
-	void delete_entities(Aquarium & aquarium, std::vector<id> & entities)
+	void delete_entities(Aquarium & aquarium, entities & entities)
 	{
 		for (auto & entity : entities)
 		{
@@ -270,7 +271,7 @@ namespace ecs
 
 	void hp_update(Aquarium & aquarium)
 	{
-		std::vector<id> entity_to_delete;
+		entities entity_to_delete;
 
 		for (auto const& entity : aquarium._entities)
 		{
@@ -292,7 +293,7 @@ namespace ecs
 
 	void age_update(Aquarium & aquarium)
 	{
-		std::vector<id> entity_to_delete;
+		entities entity_to_delete;
 
 		for (auto const& entity : aquarium._entities)
 		{
@@ -341,7 +342,7 @@ namespace ecs
 		}
 	}
 
-	void eat_seaweed(Aquarium & aquarium, living_component & eater_type, id target, std::vector<id> & seaweeds)
+	void eat_seaweed(Aquarium & aquarium, living_component & eater_type, id target, entities & seaweeds)
 	{
 		auto & target_type{ get_component(aquarium._types, target) };
 
@@ -364,9 +365,10 @@ namespace ecs
 	}
 
 	void fish_eat_fish(Aquarium & aquarium, iterator active, iterator & target,
-		reverse_iterator & last_valid, std::vector<id> & fishs, std::vector<id> & seaweeds);
+		reverse_iterator & last_valid, entities & fishs, entities & seaweeds);
 
-	void update_fish(Aquarium & aquarium, iterator active, reverse_iterator & last_valid, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	void update_fish(Aquarium & aquarium, iterator active, reverse_iterator & last_valid,
+		entities & fishs, entities & seaweeds)
 	{
 		std::uniform_int_distribution<size_t> seaweed_dist(0, seaweeds.size() - 1);
 		std::uniform_int_distribution<size_t> fish_dist(0, fishs.size() - 1);
@@ -376,7 +378,7 @@ namespace ecs
 		if (is_famished(fish_type))
 		{
 			auto fish_race{ get_component(aquarium._races, *active) };
-			if (is_carnivorous(fish_race.race_data) && (fishs.size() - std::distance(last_valid - 1, fishs.rbegin() + 1)) > 1) {
+			if (is_carnivorous(fish_race.race_data) && (fishs.size() - std::distance(last_valid, fishs.rbegin())) > 1) {
 				fish_eat_fish(aquarium, active, random_iterator(aquarium, fish_dist, fishs, active), last_valid, fishs, seaweeds);
 			}
 			else if (is_herbivorous(fish_race.race_data) && !seaweeds.empty()) {
@@ -392,7 +394,7 @@ namespace ecs
 	}
 
 	void update_fishs(Aquarium & aquarium, iterator begin, reverse_iterator & last_valid,
-					  std::vector<id> & fishs, std::vector<id> & seaweeds)
+		entities & fishs, entities & seaweeds)
 	{
 		for (iterator active{ begin }; *active != *last_valid; ++active)
 		{
@@ -411,37 +413,27 @@ namespace ecs
 		get_hp(target_type) -= 4;
 
 		if (is_dead(target_type)) {
-			/* sinon, on inverse la cible avec le dernier
-			* élément valde
-			*/
+
+			delete_entity(aquarium, *target);
+
 			std::swap(*target, *lastValid);
-			/* et comme l'itérateur lastValid contient désormais
-			*... un élément invalide, on le fait passer
-			* à l'élément suivant
-			*/
 			++lastValid;
-			/* "y a plus qu'à" déterminer si target doit
-			* pouvoir passer son temps
-			*/
+
 		}
 	}
 
 	void fish_eat_fish(Aquarium & aquarium, iterator active, iterator & target,
-		reverse_iterator & last_valid, std::vector<id> & fishs, std::vector<id> & seaweeds)
+		reverse_iterator & last_valid, entities & fishs, entities & seaweeds)
 	{
 		eat_fish(aquarium, active, target, last_valid);
-		/*l'iterateur target contient l'ancien last_valid
-		*on verfie si il faut l'update...
-		*/
+
 		if (need_update(active, target))
 		{
-			/*...et on l'update
-			*/
 			update_fish(aquarium, target, last_valid, fishs, seaweeds);
 		}
 	}
 
-	void fish_spend_time(Aquarium & aquarium, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	void fish_spend_time(Aquarium & aquarium, entities & fishs, entities & seaweeds)
 	{
 		reverse_iterator last_valid = fishs.rbegin();
 		update_fishs(aquarium, fishs.begin(), last_valid, fishs, seaweeds);
@@ -449,7 +441,7 @@ namespace ecs
 		fishs.resize(fishs.size() - sizeToRem);
 	}
 
-	void seaweed_reproduce(Aquarium & aquarium, std::vector<id> const& seaweeds)
+	void seaweed_reproduce(Aquarium & aquarium, entities const& seaweeds)
 	{
 		for (auto & seaweed : seaweeds)
 		{
@@ -468,8 +460,7 @@ namespace ecs
 		std::cout << tour << "\t" << entities << "\t\t" << seaweed << "\t\t" << herbivorous << "\t\t" << carnivorous << std::endl;
 	}
 
-
-	void spend_time(Aquarium & aquarium, std::vector<id> & fishs, std::vector<id> & seaweeds)
+	void spend_time(Aquarium & aquarium, entities & fishs, entities & seaweeds)
 	{
 		hp_update(aquarium);
 		age_update(aquarium);
